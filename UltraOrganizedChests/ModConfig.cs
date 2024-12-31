@@ -12,6 +12,9 @@ internal sealed class ModConfig : IConfigWithLogAmount
     /// <inheritdoc />
     public LogAmount LogAmount { get; set; }
 
+    /// <summary>Gets or sets a value indicating whether organization will happen automatically.</summary>
+    public bool OrganizeNightly { get; set; }
+
     /// <summary>
     ///     Copies the values from another instance of <see cref="ModConfig" />.
     /// </summary>
@@ -20,5 +23,6 @@ internal sealed class ModConfig : IConfigWithLogAmount
     {
         other.EnabledByDefault = this.EnabledByDefault;
         other.LogAmount = this.LogAmount;
+        other.OrganizeNightly = this.OrganizeNightly;
     }
 }

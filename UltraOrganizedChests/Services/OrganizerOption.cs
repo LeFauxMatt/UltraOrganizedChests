@@ -139,6 +139,16 @@ internal sealed class OrganizerOption : ComplexOption
                     hoverText = item.getDescription();
                     hoverTitle = item.DisplayName;
                     this.hoveredItem = item;
+
+                    if (item.modData.TryGetValue(Constants.NameKey, out var name))
+                    {
+                        hoverTitle = name;
+                    }
+
+                    if (item.modData.TryGetValue(Constants.CategoryKey, out var category))
+                    {
+                        hoverText = category;
+                    }
                 }
 
                 hoveredIndex = index;
@@ -178,11 +188,14 @@ internal sealed class OrganizerOption : ComplexOption
                 this.hoveredItem?.drawInMenu(spriteBatch, pos + this.slots[heldIndex].bounds.Location.ToVector2(), 1f);
             }
 
+            hoverText = hoveredIndex > this.items.Count
+                ? I18n.ConfigOption_RemoveChest_Description()
+                : string.Empty;
+
             this.heldItem.drawInMenu(spriteBatch, cursorPos + this.offset, 1f);
-            return;
         }
 
-        if (string.IsNullOrWhiteSpace(hoverText) || string.IsNullOrWhiteSpace(hoverTitle))
+        if (string.IsNullOrWhiteSpace(hoverText))
         {
             return;
         }
