@@ -1,24 +1,22 @@
-﻿using LeFauxMods.Common.Interface;
+using LeFauxMods.Common.Interface;
 using LeFauxMods.Common.Models;
 
 namespace LeFauxMods.UltraOrganizedChests;
 
+/// <inheritdoc cref="IConfigWithCopyTo{TConfig}" />
 /// <summary>Represents the mod's configuration.</summary>
-internal sealed class ModConfig : IConfigWithLogAmount
+internal sealed class ModConfig : IConfigWithCopyTo<ModConfig>, IConfigWithLogAmount
 {
     /// <summary>Gets or sets a value indicating whether the mod should be enabled by default.</summary>
     public bool EnabledByDefault { get; set; }
 
-    /// <inheritdoc />
-    public LogAmount LogAmount { get; set; }
-
     /// <summary>Gets or sets a value indicating whether organization will happen automatically.</summary>
     public bool OrganizeNightly { get; set; }
 
-    /// <summary>
-    ///     Copies the values from another instance of <see cref="ModConfig" />.
-    /// </summary>
-    /// <param name="other">The other config to copy to.</param>
+    /// <inheritdoc />
+    public LogAmount LogAmount { get; set; }
+
+    /// <inheritdoc />
     public void CopyTo(ModConfig other)
     {
         other.EnabledByDefault = this.EnabledByDefault;

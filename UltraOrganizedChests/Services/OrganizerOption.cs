@@ -120,11 +120,8 @@ internal sealed class OrganizerOption : ComplexOption
             slot.scale = Math.Max(1f, slot.scale - 0.025f);
 
             // Check for click
-            if ((slot.bounds with
-                {
-                    X = slot.bounds.X + (int)pos.X,
-                    Y = slot.bounds.Y + (int)pos.Y
-                }).Contains(mouseX, mouseY))
+            if ((slot.bounds with { X = slot.bounds.X + (int)pos.X, Y = slot.bounds.Y + (int)pos.Y }).Contains(mouseX,
+                    mouseY))
             {
                 slot.scale = Math.Min(slot.scale + 0.05f, 1.1f);
 
