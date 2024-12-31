@@ -53,6 +53,7 @@ internal sealed class ModState
         {
             if (!TryGetMenu(out var itemGrabMenu, out var chest, out _))
             {
+                Instance!.context.Value = null;
                 return false;
             }
 
@@ -102,9 +103,10 @@ internal sealed class ModState
             playerChoiceColor = { Value = chest.playerChoiceColor.Value }
         };
 
+        Log.Info("Adding chest to organizer");
         proxyChest.CopyFieldsFrom(chest);
         Organizer.Add(proxyChest);
-        Log.Info("Adding chest to organizer");
+        Instance!.enabled.Value = true;
         return true;
     }
 

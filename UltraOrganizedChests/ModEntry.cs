@@ -38,7 +38,7 @@ internal sealed class ModEntry : Mod
 
     private static void OnRenderedActiveMenu(object? sender, RenderedActiveMenuEventArgs e)
     {
-        if (!ModState.Enabled)
+        if (!ModState.Active)
         {
             return;
         }
@@ -160,14 +160,6 @@ internal sealed class ModEntry : Mod
 
     private void OnConfigChanged(ConfigChangedEventArgs<ModConfig> e)
     {
-        Log.Info("""
-                 Config Summary:
-                 - EnabledByDefault: {0}
-                 - OrganizeNightly: {1}
-                 """,
-            e.Config.EnabledByDefault,
-            e.Config.OrganizeNightly);
-
         this.Helper.Events.World.ObjectListChanged -= this.OnObjectListChanged;
         this.Helper.Events.GameLoop.DayEnding -= OnDayEnding;
 

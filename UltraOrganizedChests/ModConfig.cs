@@ -1,11 +1,12 @@
+using System.Globalization;
+using System.Text;
 using LeFauxMods.Common.Interface;
 using LeFauxMods.Common.Models;
 
 namespace LeFauxMods.UltraOrganizedChests;
 
-/// <inheritdoc cref="IConfigWithCopyTo{TConfig}" />
-/// <summary>Represents the mod's configuration.</summary>
-internal sealed class ModConfig : IConfigWithCopyTo<ModConfig>, IConfigWithLogAmount
+/// <inheritdoc cref="IModConfig{TConfig}" />
+internal sealed class ModConfig : IModConfig<ModConfig>, IConfigWithLogAmount
 {
     /// <summary>Gets or sets a value indicating whether the mod should be enabled by default.</summary>
     public bool EnabledByDefault { get; set; }
@@ -23,4 +24,11 @@ internal sealed class ModConfig : IConfigWithCopyTo<ModConfig>, IConfigWithLogAm
         other.LogAmount = this.LogAmount;
         other.OrganizeNightly = this.OrganizeNightly;
     }
+
+    /// <inheritdoc />
+    public string GetSummary() =>
+        new StringBuilder()
+            .AppendLine(CultureInfo.InvariantCulture, $"{nameof(this.EnabledByDefault),25}: {this.EnabledByDefault}")
+            .AppendLine(CultureInfo.InvariantCulture, $"{nameof(this.OrganizeNightly),25}: {this.OrganizeNightly}")
+            .ToString();
 }
