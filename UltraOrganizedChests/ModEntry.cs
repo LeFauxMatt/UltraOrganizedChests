@@ -1,14 +1,9 @@
-using LeFauxMods.Common.Integrations.GenericModConfigMenu;
 using LeFauxMods.Common.Models;
 using LeFauxMods.Common.Services;
 using LeFauxMods.Common.Utilities;
 using LeFauxMods.UltraOrganizedChests.Services;
-using LeFauxMods.UltraOrganizedChests.Utilities;
 using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
 using StardewModdingAPI.Events;
-using StardewModdingAPI.Utilities;
-using StardewValley.Inventories;
 using StardewValley.Menus;
 using StardewValley.Network;
 using StardewValley.Objects;
@@ -18,226 +13,58 @@ namespace LeFauxMods.UltraOrganizedChests;
 /// <inheritdoc />
 internal sealed class ModEntry : Mod
 {
-    private readonly PerScreen<ClickableTextureComponent?> organizeButton = new();
-    private ModConfig config = null!;
-    private ConfigHelper<ModConfig> configHelper = null!;
-    private GenericModConfigMenuIntegration gmcm = null!;
-    private Inventory? organizer;
+    private ConfigMenu configMenu = null!;
 
     /// <inheritdoc />
     public override void Entry(IModHelper helper)
     {
         // Init
+        ModEvents.Subscribe<ConfigChangedEventArgs<ModConfig>>(this.OnConfigChanged);
         I18n.Init(helper.Translation);
-        this.configHelper = new ConfigHelper<ModConfig>(this.Helper);
-        this.config = this.configHelper.Load();
-        Log.Init(this.Monitor, this.config);
-        this.gmcm = new GenericModConfigMenuIntegration(this.ModManifest, helper.ModRegistry);
+        ModState.Init(helper);
+        Log.Init(this.Monitor, ModState.Config);
 
         // Events
         helper.Events.GameLoop.GameLaunched += this.OnGameLaunched;
         helper.Events.GameLoop.ReturnedToTitle += this.OnReturnedToTitle;
         helper.Events.GameLoop.SaveLoaded += this.OnSaveLoaded;
-        ModEvents.Subscribe<ConfigChangedEventArgs<ModConfig>>(this.OnConfigChanged);
-
-        if (this.config.EnabledByDefault)
-        {
-            helper.Events.World.ObjectListChanged += this.OnObjectListChanged;
-        }
     }
 
-    private void OnButtonPressed(object? sender, ButtonPressedEventArgs e)
+    private static void OnDayEnding(object? sender, DayEndingEventArgs e)
     {
-        if (e.Button is not (SButton.MouseLeft or SButton.ControllerA) ||
-            this.organizeButton.Value is null ||
-            Game1.activeClickableMenu is not ItemGrabMenu { sourceItem: Chest { playerChest.Value: true } chest })
+        Log.Info("Organizing Nightly");
+        OrganizeAll();
+    }
+
+    private static void OnRenderedActiveMenu(object? sender, RenderedActiveMenuEventArgs e)
+    {
+        if (!ModState.Active)
         {
             return;
         }
 
-        var pos = Utility.ModifyCoordinatesForUIScale(e.Cursor.GetScaledScreenPixels()).ToPoint();
-        if (!this.organizeButton.Value.containsPoint(pos.X, pos.Y))
-        {
-            return;
-        }
-
-        this.OrganizeAll(chest);
-        this.Helper.Input.Suppress(e.Button);
-    }
-
-    private void OnConfigChanged(ConfigChangedEventArgs<ModConfig> e)
-    {
-        this.Helper.Events.World.ObjectListChanged -= this.OnObjectListChanged;
-        if (e.Config.EnabledByDefault)
-        {
-            this.Helper.Events.World.ObjectListChanged += this.OnObjectListChanged;
-        }
-    }
-
-    private void OnGameLaunched(object? sender, GameLaunchedEventArgs e)
-    {
-        var themeHelper = ThemeHelper.Init(this.Helper);
-        themeHelper.AddAsset(Constants.TexturePath,
-            this.Helper.ModContent.Load<IRawTextureData>("assets/organize.png"));
-        this.SetupTitleMenu();
-    }
-
-    private void OnMenuChanged(object? sender, MenuChangedEventArgs e)
-    {
-        if (this.organizer is null ||
-            e.NewMenu is not ItemGrabMenu
-            {
-                organizeButton: { } component, sourceItem: Chest { playerChest.Value: true } chest
-            })
-        {
-            this.organizeButton.Value = null;
-            return;
-        }
-
-        this.organizeButton.Value = new ClickableTextureComponent(
-            "organize",
-            component.bounds with { X = component.bounds.Right + 16 },
-            null,
-            I18n.Component_OrganizeButton_HoverText(),
-            this.Helper.GameContent.Load<Texture2D>(Constants.TexturePath),
-            new Rectangle(0, 0, 16, 16),
-            Game1.pixelZoom);
-
-        // Add inventory to organizer
-        if (this.config.EnabledByDefault)
-        {
-            if (string.IsNullOrWhiteSpace(chest.GlobalInventoryId))
-            {
-                var chestId = CommonHelper.GetUniqueId(Constants.Prefix);
-                chest.ToGlobalInventory(chestId);
-            }
-
-            this.organizer.AddProxy(chest);
-            this.SetupGameMenu();
-            return;
-        }
-
-        // Convert inventory back to normal
-        if (chest.GlobalInventoryId?.StartsWith(Constants.Prefix, StringComparison.OrdinalIgnoreCase) == true &&
-            !this.organizer.Any(item =>
-                item is Chest itemChest &&
-                itemChest.GlobalInventoryId.Equals(chest.GlobalInventoryId, StringComparison.OrdinalIgnoreCase)))
-        {
-            chest.ToLocalInventory();
-        }
-    }
-
-    private void OnObjectListChanged(object? sender, ObjectListChangedEventArgs e)
-    {
-        if (this.organizer is null)
-        {
-            return;
-        }
-
-        var setupAny = false;
-        foreach (var (_, obj) in e.Added)
-        {
-            if (obj is not Chest chest)
-            {
-                continue;
-            }
-
-            if (string.IsNullOrWhiteSpace(chest.GlobalInventoryId))
-            {
-                var chestId = CommonHelper.GetUniqueId(Constants.Prefix);
-                chest.ToGlobalInventory(chestId);
-            }
-
-            this.organizer.AddProxy(chest);
-            setupAny = true;
-        }
-
-        if (setupAny)
-        {
-            this.SetupGameMenu();
-        }
-    }
-
-    private void OnRenderedActiveMenu(object? sender, RenderedActiveMenuEventArgs e)
-    {
-        if (this.organizer is null ||
-            this.organizeButton.Value is null ||
-            Game1.activeClickableMenu is not ItemGrabMenu { sourceItem: Chest { playerChest.Value: true } chest })
-        {
-            return;
-        }
-
-        var enabled = this.organizer.Any(item =>
-            item is Chest itemChest &&
-            itemChest.GlobalInventoryId.Equals(chest.GlobalInventoryId, StringComparison.OrdinalIgnoreCase));
-
-        var pos = Utility.ModifyCoordinatesForUIScale(this.Helper.Input.GetCursorPosition().GetScaledScreenPixels())
-            .ToPoint();
-        this.organizeButton.Value.tryHover(pos.X, pos.Y);
-        this.organizeButton.Value.draw(
+        var cursor = ModState.Cursor;
+        ModState.OrganizeButton.tryHover(cursor.X, cursor.Y);
+        ModState.OrganizeButton.draw(
             e.SpriteBatch,
-            enabled ? Color.White : Color.Gray * 0.8f,
+            ModState.Enabled ? Color.White : Color.Gray * 0.8f,
             1f);
 
-        if (this.organizeButton.Value.containsPoint(pos.X, pos.Y))
+        if (ModState.OrganizeButton.containsPoint(cursor.X, cursor.Y))
         {
-            IClickableMenu.drawToolTip(e.SpriteBatch, this.organizeButton.Value.hoverText, null, null);
+            IClickableMenu.drawToolTip(e.SpriteBatch, ModState.OrganizeButton.hoverText, null, null);
         }
 
         Game1.activeClickableMenu.drawMouse(e.SpriteBatch);
     }
 
-    private void OnReturnedToTitle(object? sender, ReturnedToTitleEventArgs e)
+    private static void OrganizeAll()
     {
-        // Init
-        this.organizer = null;
-        this.SetupTitleMenu();
-
-        // Events
-        this.Helper.Events.Display.MenuChanged -= this.OnMenuChanged;
-        this.Helper.Events.Display.RenderedActiveMenu -= this.OnRenderedActiveMenu;
-        this.Helper.Events.Input.ButtonPressed -= this.OnButtonPressed;
-    }
-
-    private void OnSaveLoaded(object? sender, SaveLoadedEventArgs e)
-    {
-        // Init
-        this.organizer = Game1.player.team.GetOrCreateGlobalInventory(Constants.GlobalInventoryId);
-        this.SetupGameMenu();
-
-        // Events
-        this.Helper.Events.Display.MenuChanged += this.OnMenuChanged;
-        this.Helper.Events.Display.RenderedActiveMenu += this.OnRenderedActiveMenu;
-        this.Helper.Events.Input.ButtonPressed += this.OnButtonPressed;
-    }
-
-    private void OrganizeAll(Chest? chest = null)
-    {
-        if (this.organizer is null)
-        {
-            return;
-        }
-
-        // Check if current chest is included in organizer
-        if (chest is not null)
-        {
-            // Convert chest into a global inventory
-            if (string.IsNullOrWhiteSpace(chest.GlobalInventoryId))
-            {
-                var chestId = CommonHelper.GetUniqueId(Constants.Prefix);
-                chest.ToGlobalInventory(chestId);
-            }
-
-            // Add chest to organizer
-            this.organizer.AddProxy(chest);
-            this.SetupGameMenu();
-        }
-
         // Organize across inventories
         var mutexes = new HashSet<NetMutex>();
-        for (var receiveIndex = 0; receiveIndex < this.organizer.Count - 1; receiveIndex++)
+        for (var receiveIndex = 0; receiveIndex < ModState.Organizer.Count - 1; receiveIndex++)
         {
-            if (this.organizer[receiveIndex] is not Chest receiver)
+            if (ModState.Organizer[receiveIndex] is not Chest receiver)
             {
                 continue;
             }
@@ -251,9 +78,9 @@ internal sealed class ModEntry : Mod
 
             ItemGrabMenu.organizeItemsInList(targetItems);
 
-            for (var sendIndex = receiveIndex + 1; sendIndex < this.organizer.Count; sendIndex++)
+            for (var sendIndex = receiveIndex + 1; sendIndex < ModState.Organizer.Count; sendIndex++)
             {
-                if (this.organizer[sendIndex] is not Chest sender)
+                if (ModState.Organizer[sendIndex] is not Chest sender)
                 {
                     continue;
                 }
@@ -284,6 +111,8 @@ internal sealed class ModEntry : Mod
                         continue;
                     }
 
+                    Log.Trace("Added item {0} from {1} to {2}", item.Name, sender.Name, receiver.Name);
+
                     if (remaining != null)
                     {
                         continue;
@@ -295,95 +124,162 @@ internal sealed class ModEntry : Mod
             }
         }
 
-        foreach (var mutex in mutexes.Where(mutex => mutex.IsLockHeld()))
+        foreach (var mutex in mutexes.Where(static mutex => mutex.IsLockHeld()))
         {
             mutex.ReleaseLock();
         }
+    }
 
-        if (chest is null)
+    private void OnButtonPressed(object? sender, ButtonPressedEventArgs e)
+    {
+        if (e.Button is not (SButton.MouseLeft or SButton.ControllerA) ||
+            !ModState.TryGetMenu(out _, out var chest, out _))
         {
             return;
         }
 
+        var cursor = ModState.Cursor;
+        if (!ModState.OrganizeButton.containsPoint(cursor.X, cursor.Y))
+        {
+            return;
+        }
+
+        // Add current chest to organizer
+        if (ModState.TryAddToOrganizer(chest))
+        {
+            this.configMenu.SetupForGame();
+        }
+
+        OrganizeAll();
+        this.Helper.Input.Suppress(e.Button);
+
+        // Relaunch menu for chest
         chest.ShowMenu();
         _ = Game1.playSound("Ship");
     }
 
-    private void SetupGameMenu()
+    private void OnConfigChanged(ConfigChangedEventArgs<ModConfig> e)
     {
-        if (!this.gmcm.IsLoaded || this.organizer is null)
+        this.Helper.Events.World.ObjectListChanged -= this.OnObjectListChanged;
+        this.Helper.Events.GameLoop.DayEnding -= OnDayEnding;
+
+        if (e.Config.EnabledByDefault)
         {
+            this.Helper.Events.World.ObjectListChanged += this.OnObjectListChanged;
+        }
+
+        if (e.Config.OrganizeNightly)
+        {
+            this.Helper.Events.GameLoop.DayEnding += OnDayEnding;
+        }
+
+        if (Context.IsWorldReady)
+        {
+            this.configMenu.SetupForGame();
             return;
         }
 
-        var tempConfig = this.configHelper.Load();
-        var defaultConfig = new ModConfig();
-
-        var tempItems = new List<Item>(this.organizer);
-        var organizerOption = new OrganizerOption(this.Helper, tempItems);
-
-        this.gmcm.Register(Reset, Save);
-        this.gmcm.Api.AddBoolOption(
-            this.ModManifest,
-            () => tempConfig.EnabledByDefault,
-            value => tempConfig.EnabledByDefault = value,
-            I18n.ConfigOption_EnabledByDefault_Name,
-            I18n.ConfigOption_EnabledByDefault_Description);
-
-        this.gmcm.Api.AddSectionTitle(this.ModManifest, I18n.ConfigSection_ChestPriority_Name);
-        this.gmcm.Api.AddParagraph(this.ModManifest, I18n.ConfigSection_ChestPriority_Description);
-        this.gmcm.AddComplexOption(organizerOption);
-
-        return;
-
-        void Reset()
+        if (Context.IsGameLaunched)
         {
-            defaultConfig.CopyTo(tempConfig);
-            tempItems.Clear();
-            tempItems.AddRange(this.organizer);
-            this.SetupGameMenu();
-        }
-
-        void Save()
-        {
-            tempConfig.CopyTo(this.config);
-            organizerOption.Save();
-            this.organizer.Clear();
-            this.organizer.AddRange(tempItems);
-            this.organizer.RemoveEmptySlots();
-            this.configHelper.Save(tempConfig);
+            this.configMenu.SetupForTitle();
         }
     }
 
-    private void SetupTitleMenu()
+    private void OnGameLaunched(object? sender, GameLaunchedEventArgs e)
     {
-        if (!this.gmcm.IsLoaded)
+        var themeHelper = ThemeHelper.Init(this.Helper);
+        themeHelper.AddAsset(Constants.TexturePath,
+            this.Helper.ModContent.Load<IRawTextureData>("assets/organize.png"));
+
+        this.configMenu = new ConfigMenu(this.Helper, this.ModManifest);
+    }
+
+    private void OnMenuChanged(object? sender, MenuChangedEventArgs e)
+    {
+        if (ModState.TryGetMenu(out _, out var chest, out _, e.OldMenu))
         {
-            return;
+            var proxy = ModState.Organizer.FirstOrDefault(item =>
+                item is Chest itemChest &&
+                itemChest.GlobalInventoryId.Equals(chest.GlobalInventoryId, StringComparison.OrdinalIgnoreCase));
+
+            if (proxy is Chest proxyChest)
+            {
+                // Synchronize changes back to proxy
+                proxyChest.CopyFieldsFrom(chest);
+                proxyChest.playerChoiceColor.Value = chest.playerChoiceColor.Value;
+            }
+            else if (chest.GlobalInventoryId?.StartsWith(Constants.Prefix, StringComparison.OrdinalIgnoreCase) == true)
+            {
+                // Convert chest back to normal inventory
+                chest.ToLocalInventory();
+            }
         }
 
-        var tempConfig = this.configHelper.Load();
-        var defaultConfig = new ModConfig();
-
-        this.gmcm.Register(Reset, Save, true);
-        this.gmcm.Api.AddBoolOption(
-            this.ModManifest,
-            () => tempConfig.EnabledByDefault,
-            value => tempConfig.EnabledByDefault = value,
-            I18n.ConfigOption_EnabledByDefault_Name,
-            I18n.ConfigOption_EnabledByDefault_Description);
-
-        return;
-
-        void Reset()
+        // Setup overlay
+        if (ModState.TryGetMenu(out var menu, out chest, out var component, e.NewMenu))
         {
-            defaultConfig.CopyTo(tempConfig);
+            this.SetupOverlay(menu, chest, component);
+        }
+    }
+
+    private void OnObjectListChanged(object? sender, ObjectListChangedEventArgs e)
+    {
+        var setupAny = false;
+        foreach (var (_, obj) in e.Added)
+        {
+            if (obj is not Chest chest)
+            {
+                continue;
+            }
+
+            if (ModState.TryAddToOrganizer(chest))
+            {
+                setupAny = true;
+            }
         }
 
-        void Save()
+        if (setupAny)
         {
-            tempConfig.CopyTo(this.config);
-            this.configHelper.Save(tempConfig);
+            this.configMenu.SetupForGame();
+        }
+    }
+
+    private void OnReturnedToTitle(object? sender, ReturnedToTitleEventArgs e)
+    {
+        // Init
+        this.configMenu.SetupForTitle();
+
+        // Events
+        this.Helper.Events.Display.MenuChanged -= this.OnMenuChanged;
+        this.Helper.Events.Display.RenderedActiveMenu -= OnRenderedActiveMenu;
+        this.Helper.Events.Input.ButtonPressed -= this.OnButtonPressed;
+    }
+
+    private void OnSaveLoaded(object? sender, SaveLoadedEventArgs e)
+    {
+        // Init
+        this.configMenu.SetupForGame();
+
+        // Events
+        this.Helper.Events.Display.MenuChanged += this.OnMenuChanged;
+        this.Helper.Events.Display.RenderedActiveMenu += OnRenderedActiveMenu;
+        this.Helper.Events.Input.ButtonPressed += this.OnButtonPressed;
+    }
+
+    private void SetupOverlay(IClickableMenu menu, Chest chest, ClickableComponent component)
+    {
+        // Adjust organize button
+        ModState.OrganizeButton.bounds.X = component.bounds.Right + 16;
+        ModState.OrganizeButton.bounds.Y = component.bounds.Y;
+        ModState.OrganizeButton.leftNeighborID = component.myID;
+        ModState.OrganizeButton.rightNeighborID = component.rightNeighborID;
+        component.rightNeighborID = SharedConstants.OrganizeButtonId;
+        menu.allClickableComponents.Add(ModState.OrganizeButton);
+
+        // Add inventory to organizer
+        if (ModState.Config.EnabledByDefault && ModState.TryAddToOrganizer(chest))
+        {
+            this.configMenu.SetupForGame();
         }
     }
 }

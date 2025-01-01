@@ -1,24 +1,34 @@
-﻿using LeFauxMods.Common.Interface;
+using System.Globalization;
+using System.Text;
+using LeFauxMods.Common.Interface;
 using LeFauxMods.Common.Models;
 
 namespace LeFauxMods.UltraOrganizedChests;
 
-/// <summary>Represents the mod's configuration.</summary>
-internal sealed class ModConfig : IConfigWithLogAmount
+/// <inheritdoc cref="IModConfig{TConfig}" />
+internal sealed class ModConfig : IModConfig<ModConfig>, IConfigWithLogAmount
 {
     /// <summary>Gets or sets a value indicating whether the mod should be enabled by default.</summary>
     public bool EnabledByDefault { get; set; }
 
+    /// <summary>Gets or sets a value indicating whether organization will happen automatically.</summary>
+    public bool OrganizeNightly { get; set; }
+
     /// <inheritdoc />
     public LogAmount LogAmount { get; set; }
 
-    /// <summary>
-    ///     Copies the values from another instance of <see cref="ModConfig" />.
-    /// </summary>
-    /// <param name="other">The other config to copy to.</param>
+    /// <inheritdoc />
     public void CopyTo(ModConfig other)
     {
         other.EnabledByDefault = this.EnabledByDefault;
         other.LogAmount = this.LogAmount;
+        other.OrganizeNightly = this.OrganizeNightly;
     }
+
+    /// <inheritdoc />
+    public string GetSummary() =>
+        new StringBuilder()
+            .AppendLine(CultureInfo.InvariantCulture, $"{nameof(this.EnabledByDefault),25}: {this.EnabledByDefault}")
+            .AppendLine(CultureInfo.InvariantCulture, $"{nameof(this.OrganizeNightly),25}: {this.OrganizeNightly}")
+            .ToString();
 }

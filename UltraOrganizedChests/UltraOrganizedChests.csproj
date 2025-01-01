@@ -6,10 +6,10 @@
 	<PropertyGroup>
 		<Name>Ultra Organized Chests</Name>
 		<Description>Organizes items across all chests.</Description>
-		<Version>1.0.0-beta.1</Version>
+		<Version>1.0.0</Version>
 		<RootNamespace>LeFauxMods.UltraOrganizedChests</RootNamespace>
 		<UniqueId>furyx639.UltraOrganizedChests</UniqueId>
-		<UpdateKeys>GitHub:LeFauxMatt/UltraOrganizedChests</UpdateKeys>
+		<UpdateKeys>Nexus:30491, GitHub:LeFauxMatt/UltraOrganizedChests</UpdateKeys>
 		<RepositoryUrl>https://github.com/LeFauxMatt/UltraOrganizedChests</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
 	</PropertyGroup>

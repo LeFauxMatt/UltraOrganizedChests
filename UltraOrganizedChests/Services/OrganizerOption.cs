@@ -120,11 +120,8 @@ internal sealed class OrganizerOption : ComplexOption
             slot.scale = Math.Max(1f, slot.scale - 0.025f);
 
             // Check for click
-            if ((slot.bounds with
-                {
-                    X = slot.bounds.X + (int)pos.X,
-                    Y = slot.bounds.Y + (int)pos.Y
-                }).Contains(mouseX, mouseY))
+            if ((slot.bounds with { X = slot.bounds.X + (int)pos.X, Y = slot.bounds.Y + (int)pos.Y }).Contains(mouseX,
+                    mouseY))
             {
                 slot.scale = Math.Min(slot.scale + 0.05f, 1.1f);
 
@@ -139,6 +136,16 @@ internal sealed class OrganizerOption : ComplexOption
                     hoverText = item.getDescription();
                     hoverTitle = item.DisplayName;
                     this.hoveredItem = item;
+
+                    if (item.modData.TryGetValue(Constants.NameKey, out var name))
+                    {
+                        hoverTitle = name;
+                    }
+
+                    if (item.modData.TryGetValue(Constants.CategoryKey, out var category))
+                    {
+                        hoverText = category;
+                    }
                 }
 
                 hoveredIndex = index;
@@ -178,11 +185,14 @@ internal sealed class OrganizerOption : ComplexOption
                 this.hoveredItem?.drawInMenu(spriteBatch, pos + this.slots[heldIndex].bounds.Location.ToVector2(), 1f);
             }
 
+            hoverText = hoveredIndex > this.items.Count
+                ? I18n.ConfigOption_RemoveChest_Description()
+                : string.Empty;
+
             this.heldItem.drawInMenu(spriteBatch, cursorPos + this.offset, 1f);
-            return;
         }
 
-        if (string.IsNullOrWhiteSpace(hoverText) || string.IsNullOrWhiteSpace(hoverTitle))
+        if (string.IsNullOrWhiteSpace(hoverText))
         {
             return;
         }
