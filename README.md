@@ -1,12 +1,13 @@
-# Unlimited Storage
+# Ultra Organized Inventory
 
-Stardew Valley mod which makes chests hold unlimited items.
+Stardew Valley mod which allows you to organize items across all chests.
 
-## Contents
+## Table of Contents
 
-- [Unlimited Storage](#unlimited-storage)
-  - [Contents](#contents)
+- [Ultra Organized Inventory](#ultra-organized-inventory)
+  - [Table of Contents](#table-of-contents)
   - [Configurations](#configurations)
+  - [Features](#features)
   - [Translations](#translations)
 
 ## Configurations
@@ -14,22 +15,29 @@ Stardew Valley mod which makes chests hold unlimited items.
 For ease of use, it is recommended to set config options
 from [Generic Mod Config Menu](https://www.nexusmods.com/stardewvalley/mods/5098).
 
-<table>
-<thead>
-<tr>
-<th>Config Option</th>
-<th>Description</th>
-<th>Type</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>MakeChestsBig</td>
-<td>Makes all chests into large chests using the 70 slot UI. Default <code>false</code>.</td>
-<td>Boolean</td>
-</tr>
-</tbody>
-</table>
+![Config Menu](docs/config-menu.png)
+
+## Features
+
+Hit Organize All to activate for chest.
+
+![Organize All](docs/organize-enable.png)
+
+The button lights up to indicate it is active.
+
+![Organize Enabled](docs/organize-enabled.png)
+
+Prioritize chests for organization.
+
+![Organize Enabled](docs/priority.png)
+
+Remove chests from organize all.
+
+![Organize Enabled](docs/organize-disable.png)
+
+Items will move to higher priority chests.
+
+![Organize All](docs/organize-all.png)
 
 ## Translations
 

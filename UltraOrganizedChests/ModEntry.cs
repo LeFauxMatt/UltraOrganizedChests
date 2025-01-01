@@ -271,8 +271,6 @@ internal sealed class ModEntry : Mod
         // Adjust organize button
         ModState.OrganizeButton.bounds.X = component.bounds.Right + 16;
         ModState.OrganizeButton.bounds.Y = component.bounds.Y;
-        ModState.OrganizeButton.upNeighborID = component.upNeighborID;
-        ModState.OrganizeButton.downNeighborID = component.downNeighborID;
         ModState.OrganizeButton.leftNeighborID = component.myID;
         ModState.OrganizeButton.rightNeighborID = component.rightNeighborID;
         component.rightNeighborID = SharedConstants.OrganizeButtonId;
