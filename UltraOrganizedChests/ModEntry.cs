@@ -43,19 +43,22 @@ internal sealed class ModEntry : Mod
             return;
         }
 
-        var cursor = ModState.Cursor;
-        ModState.OrganizeButton.tryHover(cursor.X, cursor.Y);
-        ModState.OrganizeButton.draw(
-            e.SpriteBatch,
-            ModState.Enabled ? Color.White : Color.Gray * 0.8f,
-            1f);
-
-        if (ModState.OrganizeButton.containsPoint(cursor.X, cursor.Y))
+        Game1.InUIMode(() =>
         {
-            IClickableMenu.drawToolTip(e.SpriteBatch, ModState.OrganizeButton.hoverText, null, null);
-        }
+            var cursor = ModState.Cursor;
+            ModState.OrganizeButton.tryHover(cursor.X, cursor.Y);
+            ModState.OrganizeButton.draw(
+                e.SpriteBatch,
+                ModState.Enabled ? Color.White : Color.Gray * 0.8f,
+                1f);
 
-        Game1.activeClickableMenu.drawMouse(e.SpriteBatch);
+            if (ModState.OrganizeButton.containsPoint(cursor.X, cursor.Y))
+            {
+                IClickableMenu.drawToolTip(e.SpriteBatch, ModState.OrganizeButton.hoverText, null, null);
+            }
+
+            Game1.activeClickableMenu.drawMouse(e.SpriteBatch);
+        });
     }
 
     private static void OrganizeAll()
@@ -130,33 +133,34 @@ internal sealed class ModEntry : Mod
         }
     }
 
-    private void OnButtonPressed(object? sender, ButtonPressedEventArgs e)
-    {
-        if (e.Button is not (SButton.MouseLeft or SButton.ControllerA) ||
-            !ModState.TryGetMenu(out _, out var chest, out _))
+    private void OnButtonPressed(object? sender, ButtonPressedEventArgs e) =>
+        Game1.InUIMode(() =>
         {
-            return;
-        }
+            if (e.Button is not (SButton.MouseLeft or SButton.ControllerA) ||
+                !ModState.TryGetMenu(out _, out var chest, out _))
+            {
+                return;
+            }
 
-        var cursor = ModState.Cursor;
-        if (!ModState.OrganizeButton.containsPoint(cursor.X, cursor.Y))
-        {
-            return;
-        }
+            var cursor = ModState.Cursor;
+            if (!ModState.OrganizeButton.containsPoint(cursor.X, cursor.Y))
+            {
+                return;
+            }
 
-        // Add current chest to organizer
-        if (ModState.TryAddToOrganizer(chest))
-        {
-            this.configMenu.SetupForGame();
-        }
+            // Add current chest to organizer
+            if (ModState.TryAddToOrganizer(chest))
+            {
+                this.configMenu.SetupForGame();
+            }
 
-        OrganizeAll();
-        this.Helper.Input.Suppress(e.Button);
+            OrganizeAll();
+            this.Helper.Input.Suppress(e.Button);
 
-        // Relaunch menu for chest
-        chest.ShowMenu();
-        _ = Game1.playSound("Ship");
-    }
+            // Relaunch menu for chest
+            chest.ShowMenu();
+            _ = Game1.playSound("Ship");
+        });
 
     private void OnConfigChanged(ConfigChangedEventArgs<ModConfig> e)
     {

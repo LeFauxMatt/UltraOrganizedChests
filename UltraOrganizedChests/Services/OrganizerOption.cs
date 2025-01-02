@@ -59,8 +59,7 @@ internal sealed class OrganizerOption : ComplexOption
     public override void Draw(SpriteBatch spriteBatch, Vector2 pos)
     {
         var position = pos.ToPoint();
-        var cursorPos = Utility
-            .ModifyCoordinatesForUIScale(this.helper.Input.GetCursorPosition().GetScaledScreenPixels());
+        var cursorPos = this.helper.Input.GetCursorPosition().GetScaledScreenPixels();
         var (mouseX, mouseY) = cursorPos.ToPoint();
 
         var mouseLeft = this.helper.Input.GetState(SButton.MouseLeft);
@@ -121,7 +120,7 @@ internal sealed class OrganizerOption : ComplexOption
 
             // Check for click
             if ((slot.bounds with { X = slot.bounds.X + (int)pos.X, Y = slot.bounds.Y + (int)pos.Y }).Contains(mouseX,
-                    mouseY))
+                mouseY))
             {
                 slot.scale = Math.Min(slot.scale + 0.05f, 1.1f);
 

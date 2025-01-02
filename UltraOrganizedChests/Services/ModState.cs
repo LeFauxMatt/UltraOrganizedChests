@@ -43,9 +43,7 @@ internal sealed class ModState
 
     public static ConfigHelper<ModConfig> ConfigHelper => Instance!.configHelper;
 
-    public static Point Cursor =>
-        Utility.ModifyCoordinatesForUIScale(Instance!.helper.Input.GetCursorPosition().GetScaledScreenPixels())
-            .ToPoint();
+    public static Point Cursor => Instance!.helper.Input.GetCursorPosition().GetScaledScreenPixels().ToPoint();
 
     public static bool Active
     {
@@ -90,9 +88,9 @@ internal sealed class ModState
         }
 
         if (Organizer.Any(item =>
-                item.QualifiedItemId == chest.QualifiedItemId &&
-                item is Chest proxyChest &&
-                proxyChest.GlobalInventoryId.Equals(chest.GlobalInventoryId, StringComparison.OrdinalIgnoreCase)))
+            item.QualifiedItemId == chest.QualifiedItemId &&
+            item is Chest proxyChest &&
+            proxyChest.GlobalInventoryId.Equals(chest.GlobalInventoryId, StringComparison.OrdinalIgnoreCase)))
         {
             return false;
         }
