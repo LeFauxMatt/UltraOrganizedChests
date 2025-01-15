@@ -14,6 +14,9 @@ internal sealed class ModConfig : IModConfig<ModConfig>, IConfigWithLogAmount
     /// <summary>Gets or sets a value indicating whether organization will happen automatically.</summary>
     public bool OrganizeNightly { get; set; }
 
+    /// <summary>Gets or sets a value indicating whether the vanilla organization button will be replaced.</summary>
+    public bool ReplaceOrganizeButton { get; set; }
+
     /// <inheritdoc />
     public LogAmount LogAmount { get; set; }
 
@@ -23,6 +26,7 @@ internal sealed class ModConfig : IModConfig<ModConfig>, IConfigWithLogAmount
         other.EnabledByDefault = this.EnabledByDefault;
         other.LogAmount = this.LogAmount;
         other.OrganizeNightly = this.OrganizeNightly;
+        other.ReplaceOrganizeButton = this.ReplaceOrganizeButton;
     }
 
     /// <inheritdoc />
@@ -30,5 +34,7 @@ internal sealed class ModConfig : IModConfig<ModConfig>, IConfigWithLogAmount
         new StringBuilder()
             .AppendLine(CultureInfo.InvariantCulture, $"{nameof(this.EnabledByDefault),25}: {this.EnabledByDefault}")
             .AppendLine(CultureInfo.InvariantCulture, $"{nameof(this.OrganizeNightly),25}: {this.OrganizeNightly}")
+            .AppendLine(CultureInfo.InvariantCulture,
+                $"{nameof(this.ReplaceOrganizeButton),25}: {this.ReplaceOrganizeButton}")
             .ToString();
 }

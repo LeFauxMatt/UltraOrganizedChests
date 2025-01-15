@@ -1,9 +1,11 @@
+using System.Globalization;
 using LeFauxMods.Common.Models;
 using LeFauxMods.Common.Services;
 using LeFauxMods.Common.Utilities;
 using LeFauxMods.UltraOrganizedChests.Services;
 using Microsoft.Xna.Framework;
 using StardewModdingAPI.Events;
+using StardewModdingAPI.Utilities;
 using StardewValley.Menus;
 using StardewValley.Network;
 using StardewValley.Objects;
@@ -13,6 +15,8 @@ namespace LeFauxMods.UltraOrganizedChests;
 /// <inheritdoc />
 internal sealed class ModEntry : Mod
 {
+    private readonly PerScreen<int> grabIndex = new();
+    private readonly PerScreen<IList<Item>?> grabInventory = new();
     private ConfigMenu configMenu = null!;
 
     /// <inheritdoc />
@@ -36,6 +40,7 @@ internal sealed class ModEntry : Mod
         OrganizeAll();
     }
 
+    [EventPriority(EventPriority.High)]
     private static void OnRenderedActiveMenu(object? sender, RenderedActiveMenuEventArgs e)
     {
         if (!ModState.Active)
@@ -51,18 +56,13 @@ internal sealed class ModEntry : Mod
                 e.SpriteBatch,
                 ModState.Enabled ? Color.White : Color.Gray * 0.8f,
                 1f);
-
-            if (ModState.OrganizeButton.containsPoint(cursor.X, cursor.Y))
-            {
-                IClickableMenu.drawToolTip(e.SpriteBatch, ModState.OrganizeButton.hoverText, null, null);
-            }
-
-            Game1.activeClickableMenu.drawMouse(e.SpriteBatch);
         });
     }
 
     private static void OrganizeAll()
     {
+        var itemGrabMenu = new ItemGrabMenu([]);
+
         // Organize across inventories
         var mutexes = new HashSet<NetMutex>();
         for (var receiveIndex = 0; receiveIndex < ModState.Organizer.Count - 1; receiveIndex++)
@@ -95,33 +95,11 @@ internal sealed class ModEntry : Mod
                     sourceMutex.RequestLock(failed: () => mutexes.Remove(sourceMutex));
                 }
 
-                for (var i = sourceItems.Count - 1; i >= 0; i--)
+                if (targetMutex.IsLockHeld() && sourceMutex.IsLockHeld())
                 {
-                    if (sourceItems[i] is not { } item || !targetItems.Any(item.canStackWith))
-                    {
-                        continue;
-                    }
-
-                    if (!targetMutex.IsLockHeld() || !sourceMutex.IsLockHeld())
-                    {
-                        continue;
-                    }
-
-                    var amount = item.Stack;
-                    var remaining = receiver.addItem(item);
-                    if (remaining is not null && remaining.Stack == amount)
-                    {
-                        continue;
-                    }
-
-                    Log.Trace("Added item {0} from {1} to {2}", item.Name, sender.Name, receiver.Name);
-
-                    if (remaining != null)
-                    {
-                        continue;
-                    }
-
-                    sourceItems.Remove(item);
+                    itemGrabMenu.ItemsToGrabMenu.actualInventory = targetItems;
+                    itemGrabMenu.inventory.actualInventory = sourceItems;
+                    itemGrabMenu.FillOutStacks();
                     sourceItems.RemoveEmptySlots();
                 }
             }
@@ -133,34 +111,156 @@ internal sealed class ModEntry : Mod
         }
     }
 
-    private void OnButtonPressed(object? sender, ButtonPressedEventArgs e) =>
+    [EventPriority(EventPriority.Low)]
+    private void OnRenderedActiveMenuHover(object? sender, RenderedActiveMenuEventArgs e)
+    {
+        if (!ModState.TryGetMenu(out var menu, out var chest, out _))
+        {
+            return;
+        }
+
         Game1.InUIMode(() =>
         {
-            if (e.Button is not (SButton.MouseLeft or SButton.ControllerA) ||
-                !ModState.TryGetMenu(out _, out var chest, out _))
-            {
-                return;
-            }
-
             var cursor = ModState.Cursor;
-            if (!ModState.OrganizeButton.containsPoint(cursor.X, cursor.Y))
+            if (ModState.Active && ModState.OrganizeButton.containsPoint(cursor.X, cursor.Y))
+            {
+                IClickableMenu.drawToolTip(e.SpriteBatch, ModState.OrganizeButton.hoverText, null, null);
+                Game1.activeClickableMenu.drawMouse(e.SpriteBatch);
+            }
+
+            if (this.grabInventory.Value is null)
             {
                 return;
             }
 
-            // Add current chest to organizer
-            if (ModState.TryAddToOrganizer(chest))
+            if (this.Helper.Input.IsSuppressed(SButton.MouseLeft))
             {
-                this.configMenu.SetupForGame();
+                if (menu.heldItem is null)
+                {
+                    menu.heldItem = this.grabInventory.Value == menu.inventory.actualInventory
+                        ? menu.inventory.leftClick(cursor.X, cursor.Y, null)
+                        : menu.ItemsToGrabMenu.leftClick(cursor.X, cursor.Y, null);
+
+                    if (menu.heldItem is not null)
+                    {
+                        this.grabIndex.Value = this.grabInventory.Value == menu.inventory.actualInventory
+                            ? int.Parse(
+                                menu.inventory.inventory.First(slot => slot.containsPoint(cursor.X, cursor.Y)).name,
+                                CultureInfo.InvariantCulture)
+                            : int.Parse(
+                                menu.ItemsToGrabMenu.inventory.First(slot => slot.containsPoint(cursor.X, cursor.Y))
+                                    .name, CultureInfo.InvariantCulture);
+                    }
+                }
+
+                if (menu.heldItem is null || (this.Helper.Input.GetState(SButton.LeftShift) is not SButtonState.Held &&
+                    this.Helper.Input.GetState(SButton.LeftShift) is not SButtonState.Held))
+                {
+                    return;
+                }
+
+                menu.heldItem = this.grabInventory.Value == menu.inventory.actualInventory
+                    ? chest.addItem(menu.heldItem)
+                    : Game1.player.addItemToInventory(menu.heldItem);
+
+                if (menu.heldItem is null)
+                {
+                    this.grabIndex.Value = -1;
+                }
+
+                return;
             }
 
-            OrganizeAll();
-            this.Helper.Input.Suppress(e.Button);
+            if (this.grabIndex.Value == -1)
+            {
+                chest.clearNulls();
+                return;
+            }
 
-            // Relaunch menu for chest
-            chest.ShowMenu();
-            _ = Game1.playSound("Ship");
+            var dropInventory = menu.ItemsToGrabMenu.actualInventory;
+            var dropSlot =
+                menu.ItemsToGrabMenu.inventory.FirstOrDefault(slot => slot.containsPoint(cursor.X, cursor.Y));
+            var dropIndex = -1;
+            if (dropSlot is null)
+            {
+                dropInventory = menu.inventory.actualInventory;
+                dropSlot = menu.inventory.inventory.FirstOrDefault(slot => slot.containsPoint(cursor.X, cursor.Y));
+            }
+
+            if (dropSlot is not null)
+            {
+                dropIndex = int.Parse(dropSlot.name, CultureInfo.InvariantCulture);
+            }
+
+            if (dropIndex == -1 || this.grabIndex.Value == dropIndex)
+            {
+                menu.receiveLeftClick(cursor.X, cursor.Y);
+                return;
+            }
+
+            (this.grabInventory.Value[this.grabIndex.Value], dropInventory[dropIndex]) =
+                (dropInventory[dropIndex], menu.heldItem);
+            menu.heldItem = null;
+            this.grabIndex.Value = -1;
         });
+    }
+
+    private void OnButtonPressed(object? sender, ButtonPressedEventArgs e)
+    {
+        if (!e.Button.IsUseToolButton() ||
+            !ModState.TryGetMenu(out var menu, out var chest, out _))
+        {
+            return;
+        }
+
+        Game1.InUIMode(() =>
+        {
+            var cursor = ModState.Cursor;
+            if (ModState.OrganizeButton.containsPoint(cursor.X, cursor.Y))
+            {
+                // Add current chest to organizer
+                if (ModState.TryAddToOrganizer(chest))
+                {
+                    this.configMenu.SetupForGame();
+                }
+
+                OrganizeAll();
+                this.Helper.Input.Suppress(e.Button);
+
+                // Relaunch menu for chest
+                chest.ShowMenu();
+                _ = Game1.playSound("Ship");
+                return;
+            }
+
+            if (menu.heldItem is not null)
+            {
+                return;
+            }
+
+            this.grabIndex.Value = -1;
+            menu.heldItem = menu.ItemsToGrabMenu.leftClick(cursor.X, cursor.Y, null);
+            if (menu.heldItem is not null)
+            {
+                this.grabInventory.Value = menu.ItemsToGrabMenu.actualInventory;
+                this.grabIndex.Value =
+                    int.Parse(menu.ItemsToGrabMenu.inventory.First(slot => slot.containsPoint(cursor.X, cursor.Y)).name,
+                        CultureInfo.InvariantCulture);
+                this.Helper.Input.Suppress(e.Button);
+                return;
+            }
+
+            menu.heldItem = menu.inventory.leftClick(cursor.X, cursor.Y, null);
+            if (menu.heldItem is not null)
+            {
+                this.grabInventory.Value = menu.inventory.actualInventory;
+                this.grabIndex.Value =
+                    int.Parse(menu.inventory.inventory.First(slot => slot.containsPoint(cursor.X, cursor.Y)).name,
+                        CultureInfo.InvariantCulture);
+                this.Helper.Input.Suppress(e.Button);
+            }
+        });
+    }
 
     private void OnConfigChanged(ConfigChangedEventArgs<ModConfig> e)
     {
@@ -193,7 +293,7 @@ internal sealed class ModEntry : Mod
     {
         var themeHelper = ThemeHelper.Init(this.Helper);
         themeHelper.AddAsset(Constants.TexturePath,
-            this.Helper.ModContent.Load<IRawTextureData>("assets/organize.png"));
+            this.Helper.ModContent.Load<IRawTextureData>("assets/icons.png"));
 
         this.configMenu = new ConfigMenu(this.Helper, this.ModManifest);
     }
@@ -202,21 +302,7 @@ internal sealed class ModEntry : Mod
     {
         if (ModState.TryGetMenu(out _, out var chest, out _, e.OldMenu))
         {
-            var proxy = ModState.Organizer.FirstOrDefault(item =>
-                item is Chest itemChest &&
-                itemChest.GlobalInventoryId.Equals(chest.GlobalInventoryId, StringComparison.OrdinalIgnoreCase));
-
-            if (proxy is Chest proxyChest)
-            {
-                // Synchronize changes back to proxy
-                proxyChest.CopyFieldsFrom(chest);
-                proxyChest.playerChoiceColor.Value = chest.playerChoiceColor.Value;
-            }
-            else if (chest.GlobalInventoryId?.StartsWith(Constants.Prefix, StringComparison.OrdinalIgnoreCase) == true)
-            {
-                // Convert chest back to normal inventory
-                chest.ToLocalInventory();
-            }
+            ModState.Organizer.SyncBackup(chest);
         }
 
         // Setup overlay
@@ -256,6 +342,7 @@ internal sealed class ModEntry : Mod
         // Events
         this.Helper.Events.Display.MenuChanged -= this.OnMenuChanged;
         this.Helper.Events.Display.RenderedActiveMenu -= OnRenderedActiveMenu;
+        this.Helper.Events.Display.RenderedActiveMenu -= this.OnRenderedActiveMenuHover;
         this.Helper.Events.Input.ButtonPressed -= this.OnButtonPressed;
     }
 
@@ -267,6 +354,7 @@ internal sealed class ModEntry : Mod
         // Events
         this.Helper.Events.Display.MenuChanged += this.OnMenuChanged;
         this.Helper.Events.Display.RenderedActiveMenu += OnRenderedActiveMenu;
+        this.Helper.Events.Display.RenderedActiveMenu += this.OnRenderedActiveMenuHover;
         this.Helper.Events.Input.ButtonPressed += this.OnButtonPressed;
     }
 

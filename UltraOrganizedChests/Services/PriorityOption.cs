@@ -1,23 +1,25 @@
-﻿using System.Globalization;
+using System.Globalization;
 using LeFauxMods.Common.Integrations.GenericModConfigMenu;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using StardewValley.Inventories;
 using StardewValley.Menus;
 
 namespace LeFauxMods.UltraOrganizedChests.Services;
 
-internal sealed class OrganizerOption : ComplexOption
+internal sealed class PriorityOption : ComplexOption
 {
     private readonly int capacity;
     private readonly IModHelper helper;
-    private readonly List<Item> items;
+    private readonly Inventory items;
     private readonly List<ClickableComponent> slots = [];
 
+    private int debounce;
     private Item? heldItem;
     private Item? hoveredItem;
     private Vector2 offset = Vector2.Zero;
 
-    public OrganizerOption(IModHelper helper, List<Item> items)
+    public PriorityOption(IModHelper helper, Inventory items)
     {
         this.helper = helper;
         this.items = items;
@@ -32,7 +34,7 @@ internal sealed class OrganizerOption : ComplexOption
             {
                 var index = (row * 12) + col;
                 var component = new ClickableComponent(
-                    new Rectangle((col * Game1.tileSize) - 540, row * Game1.tileSize, Game1.tileSize, Game1.tileSize),
+                    new Rectangle(col * Game1.tileSize, row * Game1.tileSize, Game1.tileSize, Game1.tileSize),
                     index.ToString(CultureInfo.InvariantCulture)) { myID = index };
 
                 if (col > 0)
@@ -55,20 +57,17 @@ internal sealed class OrganizerOption : ComplexOption
     /// <inheritdoc />
     public override int Height { get; }
 
+    public Item? Selected { get; private set; }
+
     /// <inheritdoc />
     public override void Draw(SpriteBatch spriteBatch, Vector2 pos)
     {
-        var position = pos.ToPoint();
+        pos.X -= Math.Min(1200, Game1.uiViewport.Width - 200) / 2f;
         var cursorPos = this.helper.Input.GetCursorPosition().GetScaledScreenPixels();
         var (mouseX, mouseY) = cursorPos.ToPoint();
 
         var mouseLeft = this.helper.Input.GetState(SButton.MouseLeft);
-        var mouseRight = this.helper.Input.GetState(SButton.MouseRight);
-        var hoverY = mouseY >= position.Y && mouseY < position.Y + this.Height;
-        var clicked = hoverY && (mouseLeft is SButtonState.Pressed || mouseRight is SButtonState.Pressed);
         var heldIndex = -1;
-        var hoverText = string.Empty;
-        var hoverTitle = string.Empty;
         var hoveredIndex = -1;
         this.hoveredItem = null;
 
@@ -126,28 +125,32 @@ internal sealed class OrganizerOption : ComplexOption
 
                 if (item is not null)
                 {
-                    if (clicked && this.heldItem is null)
+                    if (mouseLeft is SButtonState.Pressed)
+                    {
+                        this.Selected = item;
+                    }
+                    else if (this.Selected is not null && this.heldItem is null && mouseLeft is SButtonState.Held)
                     {
                         this.heldItem = item;
                         this.offset = new Vector2(slot.bounds.X + pos.X - mouseX, slot.bounds.Y + pos.Y - mouseY);
                     }
-
-                    hoverText = item.getDescription();
-                    hoverTitle = item.DisplayName;
-                    this.hoveredItem = item;
-
-                    if (item.modData.TryGetValue(Constants.NameKey, out var name))
-                    {
-                        hoverTitle = name;
-                    }
-
-                    if (item.modData.TryGetValue(Constants.CategoryKey, out var category))
-                    {
-                        hoverText = category;
-                    }
                 }
 
                 hoveredIndex = index;
+            }
+
+            if (this.Selected is not null && this.Selected == item)
+            {
+                spriteBatch.Draw(
+                    Game1.menuTexture,
+                    pos + slot.bounds.Location.ToVector2(),
+                    Game1.getSourceRectForStandardTileSheet(Game1.menuTexture, 56),
+                    Color.Red,
+                    0f,
+                    Vector2.Zero,
+                    1f,
+                    SpriteEffects.None,
+                    0.5f);
             }
 
             if (this.heldItem == item)
@@ -161,7 +164,15 @@ internal sealed class OrganizerOption : ComplexOption
                 continue;
             }
 
-            item?.drawInMenu(spriteBatch, pos + slot.bounds.Location.ToVector2(), slot.scale);
+            item?.drawInMenu(
+                spriteBatch,
+                pos + slot.bounds.Location.ToVector2(),
+                slot.scale,
+                1f,
+                1f,
+                StackDrawType.Hide,
+                index >= this.items.Count ? Color.Gray * 0.8f : Color.White,
+                true);
         }
 
         if (this.heldItem is not null)
@@ -184,19 +195,16 @@ internal sealed class OrganizerOption : ComplexOption
                 this.hoveredItem?.drawInMenu(spriteBatch, pos + this.slots[heldIndex].bounds.Location.ToVector2(), 1f);
             }
 
-            hoverText = hoveredIndex > this.items.Count
-                ? I18n.ConfigOption_RemoveChest_Description()
-                : string.Empty;
-
-            this.heldItem.drawInMenu(spriteBatch, cursorPos + this.offset, 1f);
+            this.heldItem.drawInMenu(
+                spriteBatch,
+                cursorPos + this.offset,
+                1f,
+                1f,
+                1f,
+                StackDrawType.Hide,
+                hoveredIndex >= this.items.Count ? Color.Gray * 0.8f : Color.White,
+                false);
         }
-
-        if (string.IsNullOrWhiteSpace(hoverText))
-        {
-            return;
-        }
-
-        IClickableMenu.drawToolTip(spriteBatch, hoverText, hoverTitle, this.hoveredItem);
     }
 
     public void Save()
