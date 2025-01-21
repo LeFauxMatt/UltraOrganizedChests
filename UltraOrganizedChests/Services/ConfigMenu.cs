@@ -65,6 +65,13 @@ internal sealed class ConfigMenu
             I18n.ConfigOption_OrganizeNightly_Name,
             I18n.ConfigOption_OrganizeNightly_Description);
 
+        this.api.AddKeybind(
+            this.manifest,
+            static () => Config.MoveItemsModifier,
+            static value => Config.MoveItemsModifier = value,
+            I18n.ConfigOption_MoveItemsModifier_Name,
+            I18n.ConfigOption_MoveItemsModifier_Description);
+
         this.api.AddSectionTitle(this.manifest, I18n.ConfigSection_ChestPriority_Name);
         this.api.AddParagraph(this.manifest, I18n.ConfigSection_ChestPriority_Description);
         this.gmcm.AddComplexOption(priorityOption);

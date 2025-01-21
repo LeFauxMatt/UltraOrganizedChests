@@ -2,6 +2,8 @@
   "component.organize-button.hover-text": "Tout organiser",
   "config-option.enabled-by-default.name": "Activé par défaut",
   "config-option.enabled-by-default.description": "Ajoute tous les nouveaux coffres à l’organisateur par défaut",
+  "config-option.move-items-modifier.name": "Move Items Modifier",
+  "config-option.move-items-modifier.description": "Click and drag while holding down this key to move items.",
   "config-option.organize-nightly.name": "Organiser chaque nuit",
   "config-option.organize-nightly.description": "Automatiquement réorganiser les coffres chaque nuit.",
   "config-option.remove-chest.description": "Retirer les coffres de l’organisateur",
