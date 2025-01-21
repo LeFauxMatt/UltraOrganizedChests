@@ -46,7 +46,7 @@ Items will move to higher priority chests.
 |            |         Unlimited Storage          |
 | :--------- | :--------------------------------: |
 | Chinese    | [❌️](UnlimitedStorage/i18n/zh.json) |
-| French     | [❌️](UnlimitedStorage/i18n/fr.json) |
+| French     | [✔️](UnlimitedStorage/i18n/fr.json) |
 | German     | [❌️](UnlimitedStorage/i18n/de.json) |
 | Hungarian  | [❌️](UnlimitedStorage/i18n/hu.json) |
 | Italian    | [❌️](UnlimitedStorage/i18n/it.json) |

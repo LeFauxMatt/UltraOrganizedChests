@@ -48,7 +48,6 @@ internal sealed class ConfigMenu
         }
 
         var priorityOption = new PriorityOption(this.helper, this.organizer);
-        var categorizeOption = new CategorizeOption(this.helper, priorityOption);
 
         this.gmcm.Register(Reset, Save);
 
@@ -69,7 +68,6 @@ internal sealed class ConfigMenu
         this.api.AddSectionTitle(this.manifest, I18n.ConfigSection_ChestPriority_Name);
         this.api.AddParagraph(this.manifest, I18n.ConfigSection_ChestPriority_Description);
         this.gmcm.AddComplexOption(priorityOption);
-        this.gmcm.AddComplexOption(categorizeOption);
 
         return;
 

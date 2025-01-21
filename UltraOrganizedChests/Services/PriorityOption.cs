@@ -13,10 +13,7 @@ internal sealed class PriorityOption : ComplexOption
     private readonly IModHelper helper;
     private readonly Inventory items;
     private readonly List<ClickableComponent> slots = [];
-
-    private int debounce;
     private Item? heldItem;
-    private Item? hoveredItem;
     private Vector2 offset = Vector2.Zero;
 
     public PriorityOption(IModHelper helper, Inventory items)
@@ -30,9 +27,9 @@ internal sealed class PriorityOption : ComplexOption
 
         for (var row = 0; row < rows; row++)
         {
-            for (var col = 0; col < 12; col++)
+            for (var col = 0; col < 14; col++)
             {
-                var index = (row * 12) + col;
+                var index = (row * 14) + col;
                 var component = new ClickableComponent(
                     new Rectangle(col * Game1.tileSize, row * Game1.tileSize, Game1.tileSize, Game1.tileSize),
                     index.ToString(CultureInfo.InvariantCulture)) { myID = index };
@@ -57,19 +54,25 @@ internal sealed class PriorityOption : ComplexOption
     /// <inheritdoc />
     public override int Height { get; }
 
-    public Item? Selected { get; private set; }
-
     /// <inheritdoc />
     public override void Draw(SpriteBatch spriteBatch, Vector2 pos)
     {
-        pos.X -= Math.Min(1200, Game1.uiViewport.Width - 200) / 2f;
+        var availableWidth = Math.Min(1200, Game1.uiViewport.Width - 200);
+        pos.X -= availableWidth / 2f;
+        var (originX, originY) = pos.ToPoint();
         var cursorPos = this.helper.Input.GetCursorPosition().GetScaledScreenPixels();
         var (mouseX, mouseY) = cursorPos.ToPoint();
 
+        mouseX -= originX;
+        mouseY -= originY;
+
         var mouseLeft = this.helper.Input.GetState(SButton.MouseLeft);
+        var controllerA = this.helper.Input.GetState(SButton.ControllerA);
+        var pressed = mouseLeft is SButtonState.Pressed || controllerA is SButtonState.Pressed;
+        var held = mouseLeft is SButtonState.Held || controllerA is SButtonState.Held;
         var heldIndex = -1;
         var hoveredIndex = -1;
-        this.hoveredItem = null;
+        var hoverText = default(string);
 
         for (var index = 0; index < this.slots.Count; index++)
         {
@@ -118,49 +121,27 @@ internal sealed class PriorityOption : ComplexOption
             slot.scale = Math.Max(1f, slot.scale - 0.025f);
 
             // Check for click
-            if ((slot.bounds with { X = slot.bounds.X + (int)pos.X, Y = slot.bounds.Y + (int)pos.Y }).Contains(mouseX,
-                mouseY))
+            if (slot.bounds.Contains(mouseX, mouseY))
             {
                 slot.scale = Math.Min(slot.scale + 0.05f, 1.1f);
 
                 if (item is not null)
                 {
-                    if (mouseLeft is SButtonState.Pressed)
+                    hoverText ??= item.DisplayName;
+                    if (this.heldItem is null && held)
                     {
-                        this.Selected = item;
-                    }
-                    else if (this.Selected is not null && this.heldItem is null && mouseLeft is SButtonState.Held)
-                    {
+                        Game1.playSound("smallSelect");
                         this.heldItem = item;
-                        this.offset = new Vector2(slot.bounds.X + pos.X - mouseX, slot.bounds.Y + pos.Y - mouseY);
+                        this.offset = new Vector2(slot.bounds.X - mouseX, slot.bounds.Y - mouseY);
                     }
                 }
 
                 hoveredIndex = index;
             }
 
-            if (this.Selected is not null && this.Selected == item)
-            {
-                spriteBatch.Draw(
-                    Game1.menuTexture,
-                    pos + slot.bounds.Location.ToVector2(),
-                    Game1.getSourceRectForStandardTileSheet(Game1.menuTexture, 56),
-                    Color.Red,
-                    0f,
-                    Vector2.Zero,
-                    1f,
-                    SpriteEffects.None,
-                    0.5f);
-            }
-
             if (this.heldItem == item)
             {
                 heldIndex = index;
-                continue;
-            }
-
-            if (this.hoveredItem == item && this.heldItem is not null)
-            {
                 continue;
             }
 
@@ -178,8 +159,9 @@ internal sealed class PriorityOption : ComplexOption
         if (this.heldItem is not null)
         {
             // Check for release
-            if (mouseLeft is not (SButtonState.Held or SButtonState.Pressed))
+            if (!held && !pressed)
             {
+                Game1.playSound("shwip");
                 this.heldItem = null;
                 if (heldIndex != -1 && hoveredIndex != -1 && heldIndex != hoveredIndex)
                 {
@@ -188,11 +170,6 @@ internal sealed class PriorityOption : ComplexOption
                 }
 
                 return;
-            }
-
-            if (this.hoveredItem != this.heldItem)
-            {
-                this.hoveredItem?.drawInMenu(spriteBatch, pos + this.slots[heldIndex].bounds.Location.ToVector2(), 1f);
             }
 
             this.heldItem.drawInMenu(
@@ -204,6 +181,13 @@ internal sealed class PriorityOption : ComplexOption
                 StackDrawType.Hide,
                 hoveredIndex >= this.items.Count ? Color.Gray * 0.8f : Color.White,
                 false);
+
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(hoverText))
+        {
+            IClickableMenu.drawHoverText(spriteBatch, hoverText, Game1.smallFont);
         }
     }
 

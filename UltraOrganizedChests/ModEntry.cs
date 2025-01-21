@@ -1,4 +1,3 @@
-using System.Globalization;
 using LeFauxMods.Common.Models;
 using LeFauxMods.Common.Services;
 using LeFauxMods.Common.Utilities;
@@ -15,7 +14,6 @@ namespace LeFauxMods.UltraOrganizedChests;
 /// <inheritdoc />
 internal sealed class ModEntry : Mod
 {
-    private readonly PerScreen<int> grabIndex = new();
     private readonly PerScreen<IList<Item>?> grabInventory = new();
     private ConfigMenu configMenu = null!;
 
@@ -128,80 +126,23 @@ internal sealed class ModEntry : Mod
                 Game1.activeClickableMenu.drawMouse(e.SpriteBatch);
             }
 
-            if (this.grabInventory.Value is null)
+            if (this.grabInventory.Value is null ||
+                !this.Helper.Input.IsSuppressed(SButton.MouseLeft) ||
+                this.Helper.Input.GetState(ModState.Config.MoveItemsModifier) is not SButtonState.Held)
             {
                 return;
             }
 
-            if (this.Helper.Input.IsSuppressed(SButton.MouseLeft))
+            menu.heldItem ??= this.grabInventory.Value == menu.inventory.actualInventory
+                ? menu.inventory.leftClick(cursor.X, cursor.Y, menu.heldItem)
+                : menu.ItemsToGrabMenu.leftClick(cursor.X, cursor.Y, menu.heldItem);
+
+            if (menu.heldItem is not null)
             {
-                if (menu.heldItem is null)
-                {
-                    menu.heldItem = this.grabInventory.Value == menu.inventory.actualInventory
-                        ? menu.inventory.leftClick(cursor.X, cursor.Y, null)
-                        : menu.ItemsToGrabMenu.leftClick(cursor.X, cursor.Y, null);
-
-                    if (menu.heldItem is not null)
-                    {
-                        this.grabIndex.Value = this.grabInventory.Value == menu.inventory.actualInventory
-                            ? int.Parse(
-                                menu.inventory.inventory.First(slot => slot.containsPoint(cursor.X, cursor.Y)).name,
-                                CultureInfo.InvariantCulture)
-                            : int.Parse(
-                                menu.ItemsToGrabMenu.inventory.First(slot => slot.containsPoint(cursor.X, cursor.Y))
-                                    .name, CultureInfo.InvariantCulture);
-                    }
-                }
-
-                if (menu.heldItem is null || (this.Helper.Input.GetState(SButton.LeftShift) is not SButtonState.Held &&
-                    this.Helper.Input.GetState(SButton.LeftShift) is not SButtonState.Held))
-                {
-                    return;
-                }
-
                 menu.heldItem = this.grabInventory.Value == menu.inventory.actualInventory
                     ? chest.addItem(menu.heldItem)
                     : Game1.player.addItemToInventory(menu.heldItem);
-
-                if (menu.heldItem is null)
-                {
-                    this.grabIndex.Value = -1;
-                }
-
-                return;
             }
-
-            if (this.grabIndex.Value == -1)
-            {
-                chest.clearNulls();
-                return;
-            }
-
-            var dropInventory = menu.ItemsToGrabMenu.actualInventory;
-            var dropSlot =
-                menu.ItemsToGrabMenu.inventory.FirstOrDefault(slot => slot.containsPoint(cursor.X, cursor.Y));
-            var dropIndex = -1;
-            if (dropSlot is null)
-            {
-                dropInventory = menu.inventory.actualInventory;
-                dropSlot = menu.inventory.inventory.FirstOrDefault(slot => slot.containsPoint(cursor.X, cursor.Y));
-            }
-
-            if (dropSlot is not null)
-            {
-                dropIndex = int.Parse(dropSlot.name, CultureInfo.InvariantCulture);
-            }
-
-            if (dropIndex == -1 || this.grabIndex.Value == dropIndex)
-            {
-                menu.receiveLeftClick(cursor.X, cursor.Y);
-                return;
-            }
-
-            (this.grabInventory.Value[this.grabIndex.Value], dropInventory[dropIndex]) =
-                (dropInventory[dropIndex], menu.heldItem);
-            menu.heldItem = null;
-            this.grabIndex.Value = -1;
         });
     }
 
@@ -233,19 +174,16 @@ internal sealed class ModEntry : Mod
                 return;
             }
 
-            if (menu.heldItem is not null)
+            if (menu.heldItem is not null ||
+                this.Helper.Input.GetState(ModState.Config.MoveItemsModifier) is not SButtonState.Held)
             {
                 return;
             }
 
-            this.grabIndex.Value = -1;
             menu.heldItem = menu.ItemsToGrabMenu.leftClick(cursor.X, cursor.Y, null);
             if (menu.heldItem is not null)
             {
                 this.grabInventory.Value = menu.ItemsToGrabMenu.actualInventory;
-                this.grabIndex.Value =
-                    int.Parse(menu.ItemsToGrabMenu.inventory.First(slot => slot.containsPoint(cursor.X, cursor.Y)).name,
-                        CultureInfo.InvariantCulture);
                 this.Helper.Input.Suppress(e.Button);
                 return;
             }
@@ -254,9 +192,6 @@ internal sealed class ModEntry : Mod
             if (menu.heldItem is not null)
             {
                 this.grabInventory.Value = menu.inventory.actualInventory;
-                this.grabIndex.Value =
-                    int.Parse(menu.inventory.inventory.First(slot => slot.containsPoint(cursor.X, cursor.Y)).name,
-                        CultureInfo.InvariantCulture);
                 this.Helper.Input.Suppress(e.Button);
             }
         });
