@@ -2,6 +2,8 @@
   "component.organize-button.hover-text": "Organize All",
   "config-option.enabled-by-default.name": "Enabled by Default",
   "config-option.enabled-by-default.description": "Add all new chests to the organizer by default",
+  "config-option.move-items-modifier.name": "Move Items Modifier",
+  "config-option.move-items-modifier.description": "Click and drag while holding down this key to move items.",
   "config-option.organize-nightly.name": "Organize Nightly",
   "config-option.organize-nightly.description": "Automatically organize chests every night.",
   "config-option.remove-chest.description": "Remove chest from organized",

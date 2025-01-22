@@ -12,5 +12,5 @@ internal static class Constants
 
     public const string Prefix = ModId + "-Chest-";
 
-    public const string TexturePath = ModId + "/OrganizeButton";
+    public const string TexturePath = ModId + "/Icons";
 }

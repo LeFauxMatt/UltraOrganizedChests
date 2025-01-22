@@ -1,5 +1,7 @@
-﻿using LeFauxMods.Common.Integrations.GenericModConfigMenu;
+using LeFauxMods.Common.Integrations.GenericModConfigMenu;
 using LeFauxMods.Common.Services;
+using StardewValley.Inventories;
+using StardewValley.Objects;
 
 namespace LeFauxMods.UltraOrganizedChests.Services;
 
@@ -10,7 +12,11 @@ internal sealed class ConfigMenu
     private readonly GenericModConfigMenuIntegration gmcm;
     private readonly IModHelper helper;
     private readonly IManifest manifest;
-    private readonly List<Item> organizer = [];
+
+    private readonly Dictionary<string, Dictionary<string, string>> modDataChanges =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    private readonly Inventory organizer = [];
 
     public ConfigMenu(IModHelper helper, IManifest manifest)
     {
@@ -34,7 +40,14 @@ internal sealed class ConfigMenu
     {
         this.organizer.Clear();
         this.organizer.AddRange(ModState.Organizer);
-        var organizerOption = new OrganizerOption(this.helper, this.organizer);
+        this.modDataChanges.Clear();
+        foreach (var chest in this.organizer.OfType<Chest>())
+        {
+            var modData = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            this.modDataChanges.Add(chest.GlobalInventoryId, modData);
+        }
+
+        var priorityOption = new PriorityOption(this.helper, this.organizer);
 
         this.gmcm.Register(Reset, Save);
 
@@ -52,9 +65,16 @@ internal sealed class ConfigMenu
             I18n.ConfigOption_OrganizeNightly_Name,
             I18n.ConfigOption_OrganizeNightly_Description);
 
+        this.api.AddKeybind(
+            this.manifest,
+            static () => Config.MoveItemsModifier,
+            static value => Config.MoveItemsModifier = value,
+            I18n.ConfigOption_MoveItemsModifier_Name,
+            I18n.ConfigOption_MoveItemsModifier_Description);
+
         this.api.AddSectionTitle(this.manifest, I18n.ConfigSection_ChestPriority_Name);
         this.api.AddParagraph(this.manifest, I18n.ConfigSection_ChestPriority_Description);
-        this.gmcm.AddComplexOption(organizerOption);
+        this.gmcm.AddComplexOption(priorityOption);
 
         return;
 
@@ -63,12 +83,17 @@ internal sealed class ConfigMenu
             ConfigHelper.Reset();
             this.organizer.Clear();
             this.organizer.AddRange(ModState.Organizer);
+            foreach (var (_, modData) in this.modDataChanges)
+            {
+                modData.Clear();
+            }
+
             this.SetupForGame();
         }
 
         void Save()
         {
-            organizerOption.Save();
+            priorityOption.Save();
             ModState.Organizer.Clear();
             ModState.Organizer.AddRange(this.organizer);
             ModState.Organizer.RemoveEmptySlots();

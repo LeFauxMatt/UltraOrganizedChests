@@ -1,4 +1,4 @@
-﻿using LeFauxMods.Common.Services;
+using LeFauxMods.Common.Services;
 using LeFauxMods.Common.Utilities;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -43,9 +43,7 @@ internal sealed class ModState
 
     public static ConfigHelper<ModConfig> ConfigHelper => Instance!.configHelper;
 
-    public static Point Cursor =>
-        Utility.ModifyCoordinatesForUIScale(Instance!.helper.Input.GetCursorPosition().GetScaledScreenPixels())
-            .ToPoint();
+    public static Point Cursor => Instance!.helper.Input.GetCursorPosition().GetScaledScreenPixels().ToPoint();
 
     public static bool Active
     {
@@ -83,29 +81,12 @@ internal sealed class ModState
 
     public static bool TryAddToOrganizer(Chest chest)
     {
-        if (string.IsNullOrWhiteSpace(chest.GlobalInventoryId))
-        {
-            var chestId = CommonHelper.GetUniqueId(Constants.Prefix);
-            chest.ToGlobalInventory(chestId);
-        }
-
-        if (Organizer.Any(item =>
-                item.QualifiedItemId == chest.QualifiedItemId &&
-                item is Chest proxyChest &&
-                proxyChest.GlobalInventoryId.Equals(chest.GlobalInventoryId, StringComparison.OrdinalIgnoreCase)))
+        if (!Organizer.TryAddBackup(chest, Constants.Prefix))
         {
             return false;
         }
 
-        var proxyChest = new Chest(true, chest.ItemId)
-        {
-            GlobalInventoryId = chest.GlobalInventoryId,
-            playerChoiceColor = { Value = chest.playerChoiceColor.Value }
-        };
-
-        Log.Info("Adding chest to organizer");
-        proxyChest.CopyFieldsFrom(chest);
-        Organizer.Add(proxyChest);
+        Log.Info("Added chest to organizer");
         Instance!.enabled.Value = true;
         return true;
     }
